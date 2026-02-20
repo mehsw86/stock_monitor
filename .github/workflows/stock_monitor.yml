@@ -1,0 +1,75 @@
+name: Stock Monitor
+
+on:
+  schedule:
+    # 한국시간 09:00~15:30, 30분 간격 (UTC 00:00~06:30)
+    # 평일만 실행 (월~금)
+    - cron: '0,30 0-6 * * 1-5'
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pykrx slack_sdk requests
+
+      - name: Get current date (KST)
+        id: date
+        run: echo "date=$(TZ='Asia/Seoul' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Cache alert state
+        uses: actions/cache@v4
+        with:
+          path: alerts_today.json
+          key: alerts-${{ steps.date.outputs.date }}
+
+      - name: Check if market hours (KST)
+        id: market_check
+        run: |
+          # 현재 한국 시간 확인
+          KST_HOUR=$(TZ='Asia/Seoul' date +%H)
+          KST_MIN=$(TZ='Asia/Seoul' date +%M)
+          KST_TIME=$((KST_HOUR * 100 + KST_MIN))
+
+          echo "Current KST time: ${KST_HOUR}:${KST_MIN}"
+
+          # 장 운영 시간 체크 (09:00 ~ 15:30)
+          if [ $KST_TIME -ge 900 ] && [ $KST_TIME -le 1530 ]; then
+            echo "is_market_hours=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_market_hours=false" >> $GITHUB_OUTPUT
+          fi
+
+          # 15:30 요약 시간 체크 (15:30 ~ 15:59)
+          if [ $KST_TIME -ge 1530 ] && [ $KST_TIME -lt 1600 ]; then
+            echo "is_summary_time=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_summary_time=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run stock monitor
+        if: steps.market_check.outputs.is_market_hours == 'true'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+        run: |
+          python run_check.py
+
+      - name: Run daily summary
+        if: steps.market_check.outputs.is_summary_time == 'true'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+        run: |
+          python run_summary.py

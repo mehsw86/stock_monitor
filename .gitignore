@@ -1,0 +1,17 @@
+# 환경 변수 (민감 정보)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# 로컬 알림 기록
+alerts_today.json
+
+# OS
+.DS_Store
