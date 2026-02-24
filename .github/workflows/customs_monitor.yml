@@ -2,8 +2,8 @@ name: Customs Monitor
 
 on:
   schedule:
-    # 한국시간 09:00, 15:00 (UTC 00:00, 06:00) 평일만
-    - cron: '0 0,6 * * 1-5'
+    # 한국시간 15:00 (UTC 06:00) 평일만
+    - cron: '0 6 * * 1-5'
   workflow_dispatch:
 
 jobs:
