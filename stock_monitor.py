@@ -134,7 +134,7 @@ class StockMonitor:
         lines.append("─" * 30)
 
         for data in results:
-            emoji = "🔺" if data["change_pct"] > 0 else "🔻" if data["change_pct"] < 0 else "➖"
+            emoji = "🔺" if data["change_pct"] > 0 else "🔽" if data["change_pct"] < 0 else "➖"
             lines.append(
                 f"{emoji} {data['name']}: {data['prev_close']:,.0f}원 → {data['current_price']:,.0f}원 ({data['change_pct']:+.2f}%)"
             )
