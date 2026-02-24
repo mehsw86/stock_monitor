@@ -12,6 +12,7 @@ build/
 
 # 로컬 알림 기록
 alerts_today.json
+customs_seen.json
 
 # OS
 .DS_Store

@@ -1,0 +1,47 @@
+name: Customs Monitor
+
+on:
+  schedule:
+    # 한국시간 09:00, 15:00 (UTC 00:00, 06:00) 평일만
+    - cron: '0 0,6 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 slack_sdk pdfplumber
+
+      - name: Get current date (KST)
+        id: date
+        run: echo "date=$(TZ='Asia/Seoul' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Restore seen posts
+        uses: actions/cache/restore@v4
+        with:
+          path: customs_seen.json
+          key: customs-seen-${{ github.run_id }}
+          restore-keys: |
+            customs-seen-
+
+      - name: Check customs board
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+        run: python run_customs_check.py
+
+      - name: Save seen posts
+        uses: actions/cache/save@v4
+        with:
+          path: customs_seen.json
+          key: customs-seen-${{ github.run_id }}

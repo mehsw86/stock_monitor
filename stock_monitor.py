@@ -30,7 +30,7 @@ CHECK_INTERVAL = 1800  # 30분마다 체크
 
 # Slack 설정
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
-SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL", "#stock-alerts")
+SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL", "#stock_management")
 
 
 class StockMonitor:
