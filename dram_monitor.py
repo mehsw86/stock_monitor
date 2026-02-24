@@ -119,7 +119,9 @@ class DramMonitor:
             all_values = []
 
         if not all_values:
-            headers = ["Date"] + TARGET_ITEMS
+            headers = ["Date"]
+            for item in TARGET_ITEMS:
+                headers.extend([item, f"{item} Change"])
             sheet.append_row(headers)
             all_values = [headers]
 
@@ -129,11 +131,12 @@ class DramMonitor:
             print(f"[GSheet] {today} 데이터 이미 존재 - 스킵")
             return True
 
-        # 가격 행 추가
+        # 가격 + 변동률 행 추가
         row = [today]
         for item in TARGET_ITEMS:
             price = prices.get(item, {}).get("session_avg", "N/A")
-            row.append(price)
+            change = prices.get(item, {}).get("session_change", "N/A")
+            row.extend([price, change])
 
         sheet.append_row(row)
         print(f"[GSheet] {today} 가격 업데이트 완료")
