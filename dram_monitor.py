@@ -121,6 +121,13 @@ class DramMonitor:
         if not all_values:
             headers = ["Date"] + TARGET_ITEMS
             sheet.append_row(headers)
+            all_values = [headers]
+
+        # 중복 날짜 체크
+        existing_dates = [row[0] for row in all_values[1:]]
+        if today in existing_dates:
+            print(f"[GSheet] {today} 데이터 이미 존재 - 스킵")
+            return True
 
         # 가격 행 추가
         row = [today]
