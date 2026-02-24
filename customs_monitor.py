@@ -6,8 +6,11 @@ PDF 첨부파일에서 수출입 핵심 수치 추출
 
 import os
 import re
+import time
 import tempfile
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pdfplumber
 from bs4 import BeautifulSoup
 from slack_sdk import WebClient
@@ -30,6 +33,8 @@ class CustomsMonitor:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        retry = Retry(total=3, backoff_factor=5, status_forcelist=[500, 502, 503])
+        self.session.mount("https://", HTTPAdapter(max_retries=retry))
         self.slack_client = WebClient(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
         self.seen_posts = {}  # {ntt_sn: title}
 

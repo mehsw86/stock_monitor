@@ -23,7 +23,10 @@ def save_seen(seen):
 def main():
     monitor = CustomsMonitor()
     monitor.seen_posts = load_seen()
-    monitor.check_new_posts()
+    try:
+        monitor.check_new_posts()
+    except Exception as e:
+        print(f"[오류] 관세청 모니터링 실패: {e}")
     save_seen(monitor.seen_posts)
 
 
