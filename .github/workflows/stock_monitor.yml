@@ -28,11 +28,13 @@ jobs:
         id: date
         run: echo "date=$(TZ='Asia/Seoul' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
-      - name: Cache alert state
-        uses: actions/cache@v4
+      - name: Restore alert state
+        uses: actions/cache/restore@v4
         with:
           path: alerts_today.json
-          key: alerts-${{ steps.date.outputs.date }}
+          key: alerts-${{ steps.date.outputs.date }}-${{ github.run_id }}
+          restore-keys: |
+            alerts-${{ steps.date.outputs.date }}-
 
       - name: Check if market hours (KST)
         id: market_check
@@ -65,6 +67,13 @@ jobs:
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
         run: |
           python run_check.py
+
+      - name: Save alert state
+        if: steps.market_check.outputs.is_market_hours == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: alerts_today.json
+          key: alerts-${{ steps.date.outputs.date }}-${{ github.run_id }}
 
       - name: Run daily summary
         if: steps.market_check.outputs.is_summary_time == 'true'
