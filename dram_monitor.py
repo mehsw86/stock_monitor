@@ -81,34 +81,43 @@ class DramMonitor:
 
         return prices
 
+    def _get_gsheet_client(self):
+        """Google Sheet 클라이언트 생성"""
+        try:
+            import gspread
+            creds_json = os.environ.get("GSHEET_CREDENTIALS")
+            if creds_json:
+                import json
+                import tempfile
+                creds_path = tempfile.NamedTemporaryFile(
+                    suffix=".json", delete=False, mode="w"
+                )
+                creds_path.write(creds_json)
+                creds_path.close()
+                client = gspread.service_account(filename=creds_path.name)
+                os.unlink(creds_path.name)
+                return client
+            else:
+                print("[GSheet] GSHEET_CREDENTIALS 미설정 - 시트 업데이트 스킵")
+                return None
+        except ImportError:
+            print("[GSheet] gspread 미설치 - 시트 업데이트 스킵")
+            return None
+
     def update_google_sheet(self, prices, gsheet_client=None):
-        """Google Sheet에 가격 데이터 업데이트"""
+        """Google Sheet에 가격 기록 + 전일대비 변동률 계산. 변동률 dict 반환"""
+        changes = {}
+
         if not gsheet_client:
-            try:
-                import gspread
-                creds_json = os.environ.get("GSHEET_CREDENTIALS")
-                if creds_json:
-                    import json
-                    import tempfile
-                    creds_path = tempfile.NamedTemporaryFile(
-                        suffix=".json", delete=False, mode="w"
-                    )
-                    creds_path.write(creds_json)
-                    creds_path.close()
-                    gsheet_client = gspread.service_account(filename=creds_path.name)
-                    os.unlink(creds_path.name)
-                else:
-                    print("[GSheet] GSHEET_CREDENTIALS 미설정 - 시트 업데이트 스킵")
-                    return False
-            except ImportError:
-                print("[GSheet] gspread 미설치 - 시트 업데이트 스킵")
-                return False
+            gsheet_client = self._get_gsheet_client()
+            if not gsheet_client:
+                return changes
 
         try:
             sheet = gsheet_client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
         except Exception as e:
             print(f"[GSheet 오류] 시트 열기 실패: {e}")
-            return False
+            return changes
 
         today = datetime.now().strftime("%Y-%m-%d")
 
@@ -129,20 +138,46 @@ class DramMonitor:
         existing_dates = [row[0] for row in all_values[1:]]
         if today in existing_dates:
             print(f"[GSheet] {today} 데이터 이미 존재 - 스킵")
-            return True
+            # 기존 데이터에서 변동률 읽기
+            for row in all_values[1:]:
+                if row[0] == today:
+                    for i, item in enumerate(TARGET_ITEMS):
+                        col = 1 + i * 2 + 1  # Change 컬럼
+                        if col < len(row) and row[col]:
+                            changes[item] = row[col]
+            return changes
 
-        # 가격 + 변동률 행 추가
+        # 전일 가격 가져오기 (마지막 데이터 행)
+        prev_prices = {}
+        if len(all_values) > 1:
+            last_row = all_values[-1]
+            for i, item in enumerate(TARGET_ITEMS):
+                col = 1 + i * 2  # 가격 컬럼
+                if col < len(last_row) and last_row[col]:
+                    try:
+                        prev_prices[item] = float(last_row[col])
+                    except ValueError:
+                        pass
+
+        # 변동률 계산 + 행 추가
         row = [today]
         for item in TARGET_ITEMS:
-            price = prices.get(item, {}).get("session_avg", "N/A")
-            change = prices.get(item, {}).get("session_change", "N/A")
-            row.extend([price, change])
+            price_str = prices.get(item, {}).get("session_avg", "N/A")
+            change = ""
+            try:
+                price = float(price_str)
+                if item in prev_prices and prev_prices[item] > 0:
+                    change = f"{(price - prev_prices[item]) / prev_prices[item] * 100:+.2f}%"
+                    changes[item] = change
+            except (ValueError, TypeError):
+                pass
+            row.extend([price_str, change])
 
         sheet.append_row(row)
         print(f"[GSheet] {today} 가격 업데이트 완료")
-        return True
+        return changes
 
-    def send_slack_alert(self, prices):
+    def send_slack_alert(self, prices, changes):
         """Slack 알림 발송"""
         today = datetime.now().strftime("%Y-%m-%d")
 
@@ -158,7 +193,7 @@ class DramMonitor:
         for item in TARGET_ITEMS:
             data = prices.get(item, {})
             avg = data.get("session_avg", "N/A")
-            change = data.get("session_change", "N/A")
+            change = changes.get(item, "-")
             lines.append(f"{item:<35} {avg:>8} {change:>8}")
 
         lines.append("```")
@@ -189,7 +224,7 @@ class DramMonitor:
 
         print(f"[DRAM] {len(prices)}개 모델 가격 조회 완료")
         for item, data in prices.items():
-            print(f"  {item}: ${data['session_avg']} ({data['session_change']})")
+            print(f"  {item}: ${data['session_avg']}")
 
-        self.update_google_sheet(prices, gsheet_client)
-        self.send_slack_alert(prices)
+        changes = self.update_google_sheet(prices, gsheet_client)
+        self.send_slack_alert(prices, changes)
