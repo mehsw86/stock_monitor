@@ -1,12 +1,14 @@
 """
 GitHub Actions용 - 유가 체크 (1회 실행)
 """
+import sys
 from oil_monitor import OilMonitor
 from holiday_checker import is_korean_holiday
 
 
 def main():
-    if is_korean_holiday():
+    force = "--force" in sys.argv
+    if not force and is_korean_holiday():
         print("[Oil] 오늘은 공휴일 - 스킵")
         return
 

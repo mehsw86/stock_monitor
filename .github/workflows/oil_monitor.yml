@@ -28,4 +28,4 @@ jobs:
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
           GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
           GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
-        run: python run_oil_check.py
+        run: python run_oil_check.py ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
