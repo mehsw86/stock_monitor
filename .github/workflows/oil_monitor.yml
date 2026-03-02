@@ -1,9 +1,9 @@
-name: DRAM Price Monitor
+name: Oil Price Monitor
 
 on:
   schedule:
-    # 한국시간 16:00 (UTC 07:00) 평일만
-    - cron: '0 7 * * 1-5'
+    # 한국시간 09:00 (UTC 00:00) 평일만
+    - cron: '0 0 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -20,12 +20,12 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4 slack_sdk gspread holidays
+        run: pip install yfinance requests beautifulsoup4 slack_sdk gspread holidays
 
-      - name: Check DRAM prices
+      - name: Check oil prices
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
           GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
           GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
-        run: python run_dram_check.py
+        run: python run_oil_check.py

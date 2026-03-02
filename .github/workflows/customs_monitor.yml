@@ -20,7 +20,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4 slack_sdk pdfplumber
+        run: pip install requests beautifulsoup4 slack_sdk pdfplumber holidays
 
       - name: Get current date (KST)
         id: date

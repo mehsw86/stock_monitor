@@ -11,6 +11,7 @@ import requests
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from pykrx import stock
+from holiday_checker import is_korean_holiday
 
 # 모니터링할 종목 리스트 (종목코드: 종목명)
 STOCK_LIST = {
@@ -189,11 +190,15 @@ class StockMonitor:
                     self.alerted_stocks[alert_key] = current_direction
 
     def is_market_hours(self) -> bool:
-        """한국 주식시장 운영 시간 확인 (09:00 ~ 15:30)"""
+        """한국 주식시장 운영 시간 확인 (09:00 ~ 15:30, 공휴일 제외)"""
         now = datetime.now()
 
         # 주말 제외
         if now.weekday() >= 5:
+            return False
+
+        # 공휴일 제외 (임시공휴일 포함)
+        if is_korean_holiday(now.date()):
             return False
 
         current_time = now.hour * 100 + now.minute

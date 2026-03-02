@@ -5,11 +5,16 @@ import json
 from datetime import datetime
 from pathlib import Path
 from stock_monitor import StockMonitor
+from holiday_checker import is_korean_holiday
 
 SUMMARY_STATE_FILE = "summary_state.json"
 
 
 def main():
+    if is_korean_holiday():
+        print("[주식] 오늘은 공휴일 - 일일 요약 스킵")
+        return
+
     today = datetime.now().strftime("%Y-%m-%d")
 
     if Path(SUMMARY_STATE_FILE).exists():

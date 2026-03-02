@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from customs_monitor import CustomsMonitor
+from holiday_checker import is_korean_holiday
 
 SEEN_FILE = "customs_seen.json"
 
@@ -22,6 +23,10 @@ def save_seen(seen):
 
 
 def main():
+    if is_korean_holiday():
+        print("[관세청] 오늘은 공휴일 - 스킵")
+        return
+
     data = load_seen()
     seen_posts = data.get("posts", data if isinstance(data, dict) and "last_run_date" not in data else {})
     last_run_date = data.get("last_run_date", "")

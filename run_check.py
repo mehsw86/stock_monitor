@@ -5,6 +5,7 @@ import os
 import json
 from pathlib import Path
 from stock_monitor import StockMonitor
+from holiday_checker import is_korean_holiday
 
 # 알림 기록 파일 (GitHub Actions 캐시용)
 ALERT_FILE = "alerts_today.json"
@@ -25,6 +26,10 @@ def save_alerts(alerts):
 
 
 def main():
+    if is_korean_holiday():
+        print("[주식] 오늘은 공휴일 - 스킵")
+        return
+
     monitor = StockMonitor()
 
     # 이전 알림 기록 로드

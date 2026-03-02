@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pykrx slack_sdk requests
+          pip install pykrx slack_sdk requests holidays
 
       - name: Get current date (KST)
         id: date
