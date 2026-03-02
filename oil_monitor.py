@@ -138,18 +138,31 @@ class OilMonitor:
         except Exception:
             all_values = []
 
-        if not all_values:
-            headers = ["Date"]
-            for oil_type in OIL_TYPES:
-                headers.extend([f"{oil_type} ($)", f"{oil_type} Change(%)"])
-            sheet.append_row(headers)
-            all_values = [headers]
+        title = ["Oil Prices"]
+        headers = ["Date"]
+        for oil_type in OIL_TYPES:
+            headers.extend([f"{oil_type} ($)", f"{oil_type} Change(%)"])
 
-        # 중복 날짜 체크
-        existing_dates = [row[0] for row in all_values[1:]]
+        if not all_values:
+            sheet.append_row(title)
+            sheet.append_row(headers)
+            all_values = [title, headers]
+        elif all_values[0][0] != "Oil Prices":
+            # 기존 데이터 마이그레이션: 제목+헤더 없이 데이터만 있는 경우
+            existing_data = list(all_values)
+            sheet.clear()
+            sheet.append_row(title)
+            sheet.append_row(headers)
+            for row in existing_data:
+                sheet.append_row(row)
+            all_values = [title, headers] + existing_data
+            print("[GSheet] 기존 데이터 마이그레이션 완료 (제목+헤더 추가)")
+
+        # 중복 날짜 체크 (1행=제목, 2행=헤더, 3행~=데이터)
+        existing_dates = [row[0] for row in all_values[2:]]
         if today in existing_dates:
             print(f"[GSheet] {today} 데이터 이미 존재 - 스킵")
-            for row in all_values[1:]:
+            for row in all_values[2:]:
                 if row[0] == today:
                     for i, oil_type in enumerate(OIL_TYPES):
                         col = 1 + i * 2 + 1  # Change 컬럼
@@ -159,7 +172,7 @@ class OilMonitor:
 
         # 전일 가격 가져오기 (마지막 데이터 행)
         prev_prices = {}
-        if len(all_values) > 1:
+        if len(all_values) > 2:
             last_row = all_values[-1]
             for i, oil_type in enumerate(OIL_TYPES):
                 col = 1 + i * 2  # 가격 컬럼

@@ -20,7 +20,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install yfinance requests beautifulsoup4 slack_sdk gspread holidays
+        run: pip install yfinance requests beautifulsoup4 slack_sdk gspread
 
       - name: Check oil prices
         env:
@@ -28,4 +28,4 @@ jobs:
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
           GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
           GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
-        run: python run_oil_check.py ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }}
+        run: python run_oil_check.py
