@@ -2,10 +2,15 @@ name: Stock Monitor
 
 on:
   schedule:
-    # 한국시간 09:00~15:30, 30분 간격 (UTC 00:00~06:30)
+    # 한국시간 09:00~16:30, 30분 간격 (UTC 00:00~07:30)
     # 평일만 실행 (월~금)
-    - cron: '0,30 0-6 * * 1-5'
+    # 장 마감(15:30) 이후에도 일일 요약 발송을 위해 07:30 UTC(16:30 KST)까지 실행
+    - cron: '0,30 0-7 * * 1-5'
   workflow_dispatch:  # 수동 실행 가능
+
+concurrency:
+  group: stock-monitor
+  cancel-in-progress: false
 
 jobs:
   monitor:
@@ -22,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pykrx slack_sdk requests holidays
+          pip install pykrx slack_sdk requests holidays gspread
 
       - name: Get current date (KST)
         id: date
@@ -55,8 +60,8 @@ jobs:
             echo "is_market_hours=false" >> $GITHUB_OUTPUT
           fi
 
-          # 15:30 요약 시간 체크 (15:30 ~ 15:59)
-          if [ $KST_TIME -ge 1530 ] && [ $KST_TIME -lt 1600 ]; then
+          # 15:30 요약 시간 체크 (15:30 ~ 17:00, GitHub Actions 지연 대비 여유 확보)
+          if [ $KST_TIME -ge 1530 ] && [ $KST_TIME -lt 1700 ]; then
             echo "is_summary_time=true" >> $GITHUB_OUTPUT
           else
             echo "is_summary_time=false" >> $GITHUB_OUTPUT
@@ -84,5 +89,16 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
+          GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
         run: |
           python run_summary.py
+
+      - name: Save summary state
+        if: steps.market_check.outputs.is_summary_time == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            alerts_today.json
+            summary_state.json
+          key: alerts-${{ steps.date.outputs.date }}-summary-${{ github.run_id }}

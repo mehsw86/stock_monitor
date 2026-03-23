@@ -7,11 +7,14 @@ import time
 import os
 from datetime import datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 import requests
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from pykrx import stock
 from holiday_checker import is_korean_holiday
+
+KST = ZoneInfo("Asia/Seoul")
 
 # 모니터링할 종목 리스트 (종목코드: 종목명)
 STOCK_LIST = {
@@ -45,8 +48,8 @@ class StockMonitor:
     def get_stock_data(self, ticker: str) -> Optional[dict]:
         """주식 데이터 조회 (pykrx 사용)"""
         try:
-            # 오늘 날짜와 5일 전 날짜 (주말/공휴일 고려)
-            today = datetime.now()
+            # 오늘 날짜와 7일 전 날짜 (주말/공휴일 고려), KST 기준
+            today = datetime.now(KST)
             start_date = (today - timedelta(days=7)).strftime("%Y%m%d")
             end_date = today.strftime("%Y%m%d")
 
@@ -113,9 +116,9 @@ class StockMonitor:
             print(message.replace('*', ''))
             print(f"{'='*50}\n")
 
-    def send_daily_summary(self):
-        """일일 종목 요약 발송"""
-        print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 일일 요약 생성 중...")
+    def send_daily_summary(self) -> bool:
+        """일일 종목 요약 발송. 성공 시 True 반환."""
+        print(f"\n[{datetime.now(KST).strftime('%H:%M:%S')}] 일일 요약 생성 중...")
 
         results = []
         for ticker in STOCK_LIST.keys():
@@ -124,8 +127,8 @@ class StockMonitor:
                 results.append(stock_data)
 
         if not results:
-            print("[오류] 요약 데이터 없음")
-            return
+            print("[오류] 요약 데이터 없음 - 재시도 필요")
+            return False
 
         # 수익률 기준 정렬 (높은 순)
         results.sort(key=lambda x: x["change_pct"], reverse=True)
@@ -155,12 +158,15 @@ class StockMonitor:
                     text=message,
                 )
                 print("[Slack] 일일 요약 발송 완료")
+                return True
             except SlackApiError as e:
                 print(f"[Slack 오류] {e.response['error']}")
+                return False
         else:
             print(f"\n{'='*50}")
             print(message.replace('*', ''))
             print(f"{'='*50}\n")
+            return True
 
     def check_stocks(self):
         """모든 종목 체크"""
