@@ -1,0 +1,51 @@
+name: Daily Summary
+
+on:
+  schedule:
+    # 장 마감 후 16:00, 16:30, 17:00 KST (UTC 07:00, 07:30, 08:00)
+    # GitHub Actions 지연 대비 3회 실행, summary_state.json으로 중복 방지
+    - cron: '0,30 7-8 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pykrx slack_sdk requests holidays gspread
+
+      - name: Get current date (KST)
+        id: date
+        run: echo "date=$(TZ='Asia/Seoul' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Restore summary state
+        uses: actions/cache/restore@v4
+        with:
+          path: summary_state.json
+          key: summary-${{ steps.date.outputs.date }}-${{ github.run_id }}
+          restore-keys: |
+            summary-${{ steps.date.outputs.date }}-
+
+      - name: Run daily summary
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
+          GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
+        run: python run_summary.py
+
+      - name: Save summary state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: summary_state.json
+          key: summary-${{ steps.date.outputs.date }}-${{ github.run_id }}

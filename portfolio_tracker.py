@@ -189,11 +189,12 @@ class PortfolioTracker:
             row.append(portfolio_data["stocks"][ticker]["value"])
         row.extend([total_value, change_pct])
 
-        sheet.append_row(row, value_input_option="USER_ENTERED")
+        sheet.append_row(row)
 
-        # 숫자 셀에 콤마 서식 적용 (B~H열)
+        # 숫자 셀에 콤마 서식 적용 (B열~총평가금액열)
         row_num = len(all_values) + 1
-        sheet.format(f"B{row_num}:H{row_num}", {
+        total_col_letter = chr(ord("A") + 1 + len(STOCK_ORDER))  # H
+        sheet.format(f"B{row_num}:{total_col_letter}{row_num}", {
             "numberFormat": {"type": "NUMBER", "pattern": "#,##0"}
         })
         print(f"[Portfolio] {date_str} 데이터 기록 완료")

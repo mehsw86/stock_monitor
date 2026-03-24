@@ -2,15 +2,10 @@ name: Stock Monitor
 
 on:
   schedule:
-    # 한국시간 09:00~16:30, 30분 간격 (UTC 00:00~07:30)
-    # 평일만 실행 (월~금)
-    # 장 마감(15:30) 이후에도 일일 요약 발송을 위해 07:30 UTC(16:30 KST)까지 실행
-    - cron: '0,30 0-7 * * 1-5'
-  workflow_dispatch:  # 수동 실행 가능
-
-concurrency:
-  group: stock-monitor
-  cancel-in-progress: false
+    # 한국시간 09:00~15:30, 30분 간격 (UTC 00:00~06:30)
+    # 평일만 실행 (월~금), 장중 변동률 알림 전용
+    - cron: '0,30 0-6 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   monitor:
@@ -26,79 +21,44 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install pykrx slack_sdk requests holidays gspread
+        run: pip install pykrx slack_sdk requests holidays
 
       - name: Get current date (KST)
         id: date
         run: echo "date=$(TZ='Asia/Seoul' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
-      - name: Restore alert state
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            alerts_today.json
-            summary_state.json
-          key: alerts-${{ steps.date.outputs.date }}-${{ github.run_id }}
-          restore-keys: |
-            alerts-${{ steps.date.outputs.date }}-
-
       - name: Check if market hours (KST)
         id: market_check
         run: |
-          # 현재 한국 시간 확인
           KST_HOUR=$(TZ='Asia/Seoul' date +%H)
           KST_MIN=$(TZ='Asia/Seoul' date +%M)
           KST_TIME=$((KST_HOUR * 100 + KST_MIN))
-
           echo "Current KST time: ${KST_HOUR}:${KST_MIN}"
-
-          # 장 운영 시간 체크 (09:00 ~ 15:30)
           if [ $KST_TIME -ge 900 ] && [ $KST_TIME -le 1530 ]; then
             echo "is_market_hours=true" >> $GITHUB_OUTPUT
           else
             echo "is_market_hours=false" >> $GITHUB_OUTPUT
           fi
 
-          # 15:30 요약 시간 체크 (15:30 ~ 17:00, GitHub Actions 지연 대비 여유 확보)
-          if [ $KST_TIME -ge 1530 ] && [ $KST_TIME -lt 1700 ]; then
-            echo "is_summary_time=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_summary_time=false" >> $GITHUB_OUTPUT
-          fi
+      - name: Restore alert state
+        if: steps.market_check.outputs.is_market_hours == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: alerts_today.json
+          key: alerts-${{ steps.date.outputs.date }}-${{ github.run_id }}
+          restore-keys: |
+            alerts-${{ steps.date.outputs.date }}-
 
       - name: Run stock monitor
         if: steps.market_check.outputs.is_market_hours == 'true'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
-        run: |
-          python run_check.py
+        run: python run_check.py
 
       - name: Save alert state
         if: steps.market_check.outputs.is_market_hours == 'true'
         uses: actions/cache/save@v4
         with:
-          path: |
-            alerts_today.json
-            summary_state.json
+          path: alerts_today.json
           key: alerts-${{ steps.date.outputs.date }}-${{ github.run_id }}
-
-      - name: Run daily summary
-        if: steps.market_check.outputs.is_summary_time == 'true'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
-          GSHEET_CREDENTIALS: ${{ secrets.GSHEET_CREDENTIALS }}
-          GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
-        run: |
-          python run_summary.py
-
-      - name: Save summary state
-        if: steps.market_check.outputs.is_summary_time == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            alerts_today.json
-            summary_state.json
-          key: alerts-${{ steps.date.outputs.date }}-summary-${{ github.run_id }}
