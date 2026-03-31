@@ -272,8 +272,7 @@ class PortfolioTracker:
             date_str = actual_date
 
         portfolio_data = self.calculate_portfolio(prices)
-        change_info = self.update_google_sheet(date_str, portfolio_data)
-        self.send_slack_alert(date_str, portfolio_data, change_info)
+        self.update_google_sheet(date_str, portfolio_data)
 
     def backfill(self, start_date, end_date):
         """과거 데이터 일괄 기록.
